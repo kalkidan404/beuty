@@ -20,12 +20,23 @@ const recipeSchema = z.object({
 export const maxDuration = 60
 
 export async function POST(req: Request) {
-  const { hairType, skinType, condition, goal, detailedCondition, personalGoals } = await req.json()
-
   try {
-    console.log("[v0] Using Google Gemini model, API key present:", !!process.env.GOOGLE_GENERATIVE_AI_API_KEY)
+    const body = await req.json()
+    const { hairType, skinType, condition, goal, detailedCondition, personalGoals } = body
+
+    console.log("[API] Received request:", { hairType, skinType, condition, goal, detailedCondition: !!detailedCondition, personalGoals: !!personalGoals })
+    console.log("[API] GOOGLE_GENERATIVE_AI_API_KEY present:", !!process.env.GOOGLE_GENERATIVE_AI_API_KEY)
+
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      console.error("[API] Missing GOOGLE_GENERATIVE_AI_API_KEY")
+      return Response.json(
+        { error: "AI service is not configured. Please check API key setup." },
+        { status: 500 }
+      )
+    }
+
     const { output } = await generateText({
-      model: google("gemini-2.0-flash"),
+      model: google("gemini-1.5-flash"),
       output: Output.object({
         schema: recipeSchema,
       }),
@@ -56,16 +67,18 @@ Requirements:
 Use an empowering, soft feminine tone. No clinical or medical claims. No harsh language.`,
     })
 
+    console.log("[API] Successfully generated recipe:", output.productName)
     return Response.json({ recipe: output })
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to generate recipe"
-    const isGatewayError = message.includes("credit card") || message.includes("AI Gateway")
+    console.error("[API] Error generating recipe:", error)
+    const message = error instanceof Error ? error.message : "Failed to generate recipe"
+    const isGatewayError = message.includes("credit card") || message.includes("AI Gateway") || message.includes("quota")
+
     return Response.json(
       {
         error: isGatewayError
-          ? "The AI Gateway requires account verification. Please add a credit card to your Vercel account to unlock free AI credits."
-          : "Something went wrong while crafting your recipe. Please try again.",
+          ? "The AI service requires account verification. Please check your API key and billing setup."
+          : `Something went wrong while crafting your recipe: ${message}`,
       },
       { status: isGatewayError ? 403 : 500 }
     )

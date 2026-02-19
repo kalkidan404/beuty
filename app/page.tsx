@@ -22,6 +22,8 @@ interface FormData {
   skinType: string
   condition: string
   goal: string
+  detailedCondition: string
+  personalGoals: string
 }
 
 export default function Home() {
