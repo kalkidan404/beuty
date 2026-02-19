@@ -20,7 +20,7 @@ const recipeSchema = z.object({
 export const maxDuration = 60
 
 export async function POST(req: Request) {
-  const { hairType, skinType, condition, goal } = await req.json()
+  const { hairType, skinType, condition, goal, detailedCondition, personalGoals } = await req.json()
 
   try {
     console.log("[v0] Using Google Gemini model, API key present:", !!process.env.GOOGLE_GENERATIVE_AI_API_KEY)
@@ -37,6 +37,8 @@ Hair Type: ${hairType}
 Skin Type: ${skinType}
 Current Condition: ${condition}
 Goal: ${goal}
+${detailedCondition ? `Detailed Description: ${detailedCondition}` : ''}
+${personalGoals ? `Personal Goals: ${personalGoals}` : ''}
 
 Requirements:
 - Use only natural, commonly accessible ingredients
