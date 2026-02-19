@@ -35,12 +35,18 @@ export async function POST(req: Request) {
       )
     }
 
-    const { output } = await generateText({
-      model: google("gemini-1.5-flash"),
-      output: Output.object({
-        schema: recipeSchema,
-      }),
-      prompt: `You are a professional natural cosmetic formulator and herbal beauty expert with an elegant, empowering, and warm feminine tone.
+    // Try a list of candidate models and use the first that succeeds.
+    const candidateModels = [
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "models/text-bison-001",
+      "text-bison-001",
+    ]
+
+    let output: any = null
+    let lastError: unknown = null
+
+    const prompt = `You are a professional natural cosmetic formulator and herbal beauty expert with an elegant, empowering, and warm feminine tone.
 
 Create a safe, homemade beauty recipe based on the following user profile:
 
@@ -64,8 +70,30 @@ Requirements:
   6. Frequency of use
   7. Safety warnings (if needed, written gently)
 
-Use an empowering, soft feminine tone. No clinical or medical claims. No harsh language.`,
-    })
+Use an empowering, soft feminine tone. No clinical or medical claims. No harsh language.`
+
+    for (const modelId of candidateModels) {
+      try {
+        console.log(`[API] Trying model: ${modelId}`)
+        const res = await generateText({
+          model: google(modelId),
+          output: Output.object({ schema: recipeSchema }),
+          prompt,
+        })
+        output = res.output
+        console.log(`[API] Model succeeded: ${modelId}`)
+        break
+      } catch (err) {
+        console.warn(`[API] Model failed: ${modelId}`, err instanceof Error ? err.message : err)
+        lastError = err
+        continue
+      }
+    }
+
+    if (!output) {
+      console.error('[API] No models succeeded. Last error:', lastError)
+      throw new Error('No supported model available for text generation. Please check your API and available models.')
+    }
 
     console.log("[API] Successfully generated recipe:", output.productName)
     return Response.json({ recipe: output })
